@@ -1,0 +1,14 @@
+{
+  "name": "djdeck",
+  "tree": {
+    "$className": "DataModel",
+
+    "ServerStorage": {
+      "$path": "src"
+    }
+  },
+
+  "syncback": {
+    "ignoreNames": ["DECKS"]
+  }
+}
