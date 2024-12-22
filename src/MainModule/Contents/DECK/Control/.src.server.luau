@@ -156,8 +156,7 @@ do
 					xPos -= waveformSpeed
 					
 					if xPos <= -imageWidth then
-						xPos = 0
-						currentImage += 1
+						xPos = 0; currentImage += 1
 						if currentImage > #waveformParts then currentImage = 1 end
 					end
 

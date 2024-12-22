@@ -4,9 +4,7 @@ local knob = master.LEDS["BEATFX FX SELECTION KNOB"]
 local gui = knob.Screen
 
 local knobControl = master:WaitForChild("KnobControl")
-
 local camera = workspace.CurrentCamera
-local player = game:GetService("Players").LocalPlayer
 
 local angles = {-30, -54, -78, -103, -128, -150, -173, 167, 144, 124, 102, 77, 56, 35}
 local angleIndex = 1
