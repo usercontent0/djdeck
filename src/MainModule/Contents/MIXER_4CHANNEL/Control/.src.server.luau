@@ -79,8 +79,8 @@ do
 				end
 
 				if newLevel < 5 then
-					local currentDecay = DecayRate * math.pow(PeakLevels[channel], ExpFactor)
-					PeakLevels[channel] = math.max(PeakLevels[channel] - (currentDecay * deltaTime), 0)
+					local currentDecay = DecayRate * (PeakLevels[channel] ^ ExpFactor)
+					PeakLevels[channel] = math.max(PeakLevels[channel] - (currentDecay*deltaTime), 0)
 				end
 
 				local peakIndex = math.floor(mapNumber(PeakLevels[channel], 0, MaxSize, 1, VUSize))
@@ -102,8 +102,8 @@ do
 				end
 
 				if newLevel < 5 then
-					local currentDecay = DecayRate * math.pow(PeakLevels[masterIndex], ExpFactor)
-					PeakLevels[masterIndex] = math.max(PeakLevels[masterIndex] - (currentDecay * deltaTime), 0)
+					local currentDecay = DecayRate * (PeakLevels[masterIndex] ^ ExpFactor)
+					PeakLevels[masterIndex] = math.max(PeakLevels[masterIndex] - (currentDecay*deltaTime), 0)
 				end
 
 				local peakIndex = math.floor(mapNumber(PeakLevels[masterIndex], 0, MaxSize, 1, VUSize))
@@ -337,13 +337,50 @@ do
 	end)
 end
 
-task.spawn(function()
-	while true do
-		LEDS["COLOR FX FILTER"].Color = Color3.fromRGB(170, 170, 170)
-		task.wait(.25)
-		LEDS["COLOR FX FILTER"].Color = Color3.fromRGB(85, 85, 85)
-		task.wait(.25)
+do
+	local colorFxButton = nil
+	local whitelistedButtons = {
+		["COLOR FX SPACE"] = true,
+		["COLOR FX DUB ECHO"] = true,
+		["COLOR FX SWEEP"] = true,
+		["COLOR FX NOISE"] = true,
+		["COLOR FX CRUSH"] = true,
+		["COLOR FX FILTER"] = true,
+	}
+
+	local function turnOnAllButtons(fromButton: string)
+		for _,button in LEDS:GetChildren() do
+			if button.Name ~= fromButton and whitelistedButtons[button.Name] then
+				button.Color = Color3.fromRGB(170, 170, 170)
+			end
+		end
 	end
-end)
+
+	task.spawn(function()
+		while true do
+			if colorFxButton then
+				colorFxButton.Color = Color3.fromRGB(170, 170, 170)
+			end
+			task.wait(.25)
+			if colorFxButton then
+				colorFxButton.Color = Color3.fromRGB(85, 85, 85)
+			end
+			task.wait(.25)
+		end
+	end)
+
+	for colorFx,_ in whitelistedButtons do
+		LEDS[colorFx].ClickDetector.MouseClick:Connect(function()
+			if colorFxButton == LEDS[colorFx] then
+				local saved = colorFxButton
+				colorFxButton = nil
+				saved.Color = Color3.fromRGB(170, 170, 170)
+			else
+				colorFxButton = LEDS[colorFx]
+				turnOnAllButtons(colorFxButton.Name)
+			end
+		end)
+	end
+end
 
 print(`mixer init`)

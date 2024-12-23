@@ -17,6 +17,11 @@ local function mapNumber(l, inMin, inMax, outMin, outMax)
 	return ((l - inMin) * (outMax - outMin)) / (inMax - inMin) + outMin
 end
 
+local function getRandomAudioPeak(minDb, maxDb)
+	local db = minDb + math.random() * (maxDb - minDb)
+	return math.floor(100 * 10^(db / 20))
+end
+
 local vuColors = {
 	standard = {
 		[1] = Color3.fromRGB(58, 160, 92),
@@ -47,14 +52,12 @@ local vuColors = {
 do
 	local updateFPS = 1/20
 	local updateCounter = 0
-	local PeakHoldTime = 2
 
-	local VUSize = 9
-	local VUSizeMaster = 11
-	local MaxSize = 100
+	local VUSize, VUSizeMaster, MaxSize = 9, 11, 100
 	local LEVELTABS = {["CHANNEL1"] = {}, ["CHANNEL2"] = {}, ["CHANNEL3"] = {}, ["CHANNEL4"] = {}, ["MASTER1"] = {}, ["MASTER2"] = {}}
 
 	local LEVELS = {0, 0, 0, 0}
+	local ChannelActive = {false, false, false, false}
 	local masterDiv = {0, 0}
 
 	local CHANNELS = {
@@ -66,11 +69,15 @@ do
 		["MASTER2"] = INDICATORS["MASTER R"]
 	}
 
-	for channelIndex = 1, 4 do
-		for VUIndex = 1, VUSize do
-			LEVELTABS[`CHANNEL{channelIndex}`][#LEVELTABS[`CHANNEL{channelIndex}`] + 1] = mapNumber(VUIndex, 1, VUSize, 0, MaxSize)
+	local function fillLevelTabs(t)
+		for _,channel in t do
+			for vuIndex = 1, VUSize do
+				table.insert(LEVELTABS[channel], mapNumber(vuIndex, 1, VUSize, 0, MaxSize))
+			end
 		end
-	end		
+	end
+
+	fillLevelTabs({"CHANNEL1", "CHANNEL2", "CHANNEL3", "CHANNEL4"})
 	for channelIndex = 1, 2 do
 		for VUIndex = 1, VUSizeMaster do
 			LEVELTABS[`MASTER{channelIndex}`][#LEVELTABS[`MASTER{channelIndex}`] + 1] = mapNumber(VUIndex, 1, VUSizeMaster, 0, MaxSize)
@@ -83,10 +90,8 @@ do
 		if updateCounter >= updateFPS then
 			updateCounter -= updateFPS
 
-			local RANDOMS = {
-				[1] = math.random(40, 90), [2] = math.random(40, 90),
-				[3] = math.random(40, 90), [4] = math.random(40, 90)
-			}
+			local RANDOMS = {}
+			for index = 1, 4 do RANDOMS[index] = ChannelActive[index] and getRandomAudioPeak(-6, -1) or 0 end
 
 			for channelIndex = 1, 4 do
 				local newLevel = RANDOMS[channelIndex]
@@ -99,7 +104,6 @@ do
 
 			for channelIndex = 1, 2 do
 				local newLevel = (LEVELS[1]+LEVELS[2]+LEVELS[3]+LEVELS[4]) / masterDiv[channelIndex]
-				local masterIndex = channelIndex+4
 
 				for index = 1, VUSizeMaster do
 					CHANNELS[`MASTER{channelIndex}`][index].Color = LEVELTABS[`MASTER{channelIndex}`][index] < newLevel and vuColors.master[index] or Color3.new(0, 0, 0)
@@ -119,6 +123,7 @@ do
 	volumeMeter.Event:Connect(function(channelNumber: number, isVisible: boolean)
 		for index = 1, VUSize do
 			CHANNELS[`CHANNEL{channelNumber}`][index].Transparency = isVisible and 0 or 1
+			ChannelActive[channelNumber] = isVisible
 		end
 	end)
 end
@@ -243,7 +248,8 @@ do
 				
 				for buttonName, state in cueStates do
 					if state then
-						LEDS["CUE STATUS INDICATOR"].Color = Color3.fromRGB(165, 0, 74); return
+						LEDS["CUE STATUS INDICATOR"].Color = Color3.fromRGB(165, 0, 74)
+						return
 					else
 						LEDS["CUE STATUS INDICATOR"].Color = Color3.fromRGB(0, 0, 0)
 					end

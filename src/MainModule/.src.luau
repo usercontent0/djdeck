@@ -28,12 +28,8 @@ function DJDECK:Initialize(deckModel: Model)
 		end
 	end
 	
-	if RMX then 
-		copyContents(CONTENTS[`MIXER_RMX`], MIXER)
-	else
-		copyContents(XONE and CONTENTS[`MIXER_XONE`] or CONTENTS[`MIXER_{CHANNELS}CHANNEL`], MIXER)
-	end
 	
+	copyContents(XONE and CONTENTS[`MIXER_XONE`] or CONTENTS[`MIXER_{CHANNELS}CHANNEL`], MIXER)
 	for deckNum = 1, #DECKS do
 		copyContents(CONTENTS["DECK"], DECKS[deckNum])
 	end

@@ -18,16 +18,22 @@ local function mapNumber(l, inMin, inMax, outMin, outMax)
 	return ((l - inMin) * (outMax - outMin)) / (inMax - inMin) + outMin
 end
 
+local function getRandomAudioPeak(minDb, maxDb)
+	local db = minDb + math.random() * (maxDb - minDb)
+	return math.floor(100 * 10^(db / 20))
+end
+
 do
 	local updateFPS = 1/20
 	local updateCounter = 0
 	local PeakHoldTime = 2
+	local DecayRate, ExpFactor = 5, 1
 
-	local VUSize = 15
-	local MaxSize = 100
+	local VUSize, MaxSize = 15, 100
 	local LEVELTABS = {["CHANNEL1"] = {}, ["CHANNEL2"] = {}, ["CHANNEL3"] = {}, ["CHANNEL4"] = {}, ["CHANNEL5"] = {}, ["CHANNEL6"] = {}, ["MASTER1"] = {}, ["MASTER2"] = {}}
 	
 	local LEVELS = {0, 0, 0, 0, 0, 0}
+	local ChannelActive = {false, false, false, false}
 	local PeakLevels = {0, 0, 0, 0, 0, 0, 0, 0}
 	local PeakTimers = {0, 0, 0, 0, 0, 0, 0, 0}
 	local masterDiv = {0, 0}
@@ -42,69 +48,71 @@ do
 		["MASTER1"] = INDICATORS["MASTER L"],
 		["MASTER2"] = INDICATORS["MASTER R"]
 	}
+
+	local function fillLevelTabs(t)
+		for _,channel in t do
+			for vuIndex = 1, VUSize do
+				table.insert(LEVELTABS[channel], mapNumber(vuIndex, 1, VUSize, 0, MaxSize))
+			end
+		end
+	end
 	
-	for channelIndex = 1, 6 do
-		for VUIndex = 1, VUSize do
-			LEVELTABS[`CHANNEL{channelIndex}`][#LEVELTABS[`CHANNEL{channelIndex}`] + 1] = mapNumber(VUIndex, 1, VUSize, 0, MaxSize)
-		end
-	end		
-	for channelIndex = 1, 2 do
-		for VUIndex = 1, VUSize do
-			LEVELTABS[`MASTER{channelIndex}`][#LEVELTABS[`MASTER{channelIndex}`] + 1] = mapNumber(VUIndex, 1, VUSize, 0, MaxSize)
-		end
+	fillLevelTabs({"CHANNEL1", "CHANNEL2", "CHANNEL3", "CHANNEL4", "CHANNEL5", "CHANNEL6"})
+	fillLevelTabs({"MASTER1", "MASTER2"})
+	
+	for _,channel in CHANNELS do
+		for _,led in channel.LEDS:GetChildren() do led.Visible = true end
 	end
 
 	runService.Heartbeat:Connect(function(deltaTime)
-		for channelIndex = 1, 6 do PeakTimers[channelIndex] += deltaTime end
+		for index = 1, 8 do PeakTimers[index] += deltaTime end
 		updateCounter += deltaTime
 		
 		if updateCounter >= updateFPS then
 			updateCounter -= updateFPS
 			
-			local RANDOMS = {
-				[1] = math.random(20, 90), [2] = math.random(20, 90), [3] = math.random(20, 90),
-				[4] = math.random(20, 90), [5] = math.random(20, 90), [6] = math.random(20, 90)
-			}
+			local RANDOMS = {}
+			for index = 1, 6 do RANDOMS[index] = ChannelActive[index] and getRandomAudioPeak(-6, -1) or 0 end
 
-			for channelIndex = 1, 6 do
-				local newLevel = RANDOMS[channelIndex]
+			for channel = 1, 6 do
+				local newLevel = RANDOMS[channel]
+				if (PeakTimers[channel] >= PeakHoldTime) or (newLevel > PeakLevels[channel]) then
+					PeakLevels[channel], PeakTimers[channel] = newLevel, 0
+				end
 
-				PeakTimers[channelIndex] += updateFPS
-				if (PeakTimers[channelIndex] >= PeakHoldTime) or (newLevel > PeakLevels[channelIndex]) then
-					PeakLevels[channelIndex] = newLevel
-					PeakTimers[channelIndex] = 0
+				if newLevel < 5 then
+					local currentDecay = DecayRate * (PeakLevels[channel] ^ ExpFactor)
+					PeakLevels[channel] = math.max(PeakLevels[channel] - (currentDecay*deltaTime), 0)
 				end
 				
-				for index = 1, VUSize do
-					CHANNELS[`CHANNEL{channelIndex}`].LEDS[index].BackgroundTransparency = LEVELTABS[`CHANNEL{channelIndex}`][index] <= newLevel and 0 or 1
-					LEVELS[channelIndex] = CHANNELS[`CHANNEL{channelIndex}`].LEDS[index].Visible and newLevel or 0
-					
-					local correspondingIndex = math.floor(mapNumber(PeakLevels[channelIndex], 0, MaxSize, 1, VUSize))
-					if index == correspondingIndex then
-						CHANNELS[`CHANNEL{channelIndex}`].LEDS[index].BackgroundTransparency = 0
-					end
+				local peakIndex = math.floor(mapNumber(PeakLevels[channel], 0, MaxSize, 1, VUSize))
+				for vuIndex = 1, VUSize do
+					CHANNELS["CHANNEL"..channel].LEDS[vuIndex].BackgroundTransparency = 
+						(LEVELTABS["CHANNEL"..channel][vuIndex] < newLevel
+						or (peakIndex > 1 and vuIndex == peakIndex)) and 0 or 1
+
+					LEVELS[channel] = ChannelActive[channel] and newLevel or 0
 				end
 			end
 
-			for channelIndex = 1, 2 do
-				local newLevel = (LEVELS[1]+LEVELS[2]+LEVELS[3]+LEVELS[4]+LEVELS[5]+LEVELS[6]) / masterDiv[channelIndex]
-				local masterIndex = channelIndex+6
-				
-				PeakTimers[masterIndex] += updateFPS
+			for channel = 1, 2 do
+				local newLevel = (LEVELS[1] + LEVELS[2] + LEVELS[3] + LEVELS[4] + LEVELS[5] + LEVELS[6]) / masterDiv[channel]
+				local masterIndex = channel + 6
+
 				if (PeakTimers[masterIndex] >= PeakHoldTime) or (newLevel > PeakLevels[masterIndex]) then
-					PeakLevels[masterIndex] = newLevel
-					PeakTimers[masterIndex] = 0
+					PeakLevels[masterIndex], PeakTimers[masterIndex] = newLevel, 0					
 				end
-				
-				for index = 1, VUSize do
-					CHANNELS[`MASTER{channelIndex}`].LEDS[index].BackgroundTransparency = LEVELTABS[`MASTER{channelIndex}`][index] < newLevel and 0 or 1
-					
-					local correspondingIndex = math.floor(mapNumber(PeakLevels[masterIndex], 0, MaxSize, 1, VUSize))
-					if correspondingIndex == 1 then
-						CHANNELS[`MASTER{channelIndex}`].LEDS[index].BackgroundTransparency = 1
-					elseif index == correspondingIndex then
-						CHANNELS[`MASTER{channelIndex}`].LEDS[index].BackgroundTransparency = 0
-					end
+
+				if newLevel < 5 then
+					local currentDecay = DecayRate * (PeakLevels[masterIndex] ^ ExpFactor)
+					PeakLevels[masterIndex] = math.max(PeakLevels[masterIndex] - (currentDecay*deltaTime), 0)
+				end
+
+				local peakIndex = math.floor(mapNumber(PeakLevels[masterIndex], 0, MaxSize, 1, VUSize))
+				for vuIndex = 1, VUSize do
+					CHANNELS["MASTER"..channel].LEDS[vuIndex].BackgroundTransparency = 
+        			(LEVELTABS["MASTER"..channel][vuIndex] < newLevel
+					or (peakIndex > 1 and vuIndex == peakIndex)) and 0 or 1
 				end
 			end
 		end
@@ -119,9 +127,7 @@ do
 	end)
 
 	volumeMeter.Event:Connect(function(channelNumber: number, isVisible: boolean)
-		for index = 1, #LEVELTABS[`CHANNEL{channelNumber}`] do
-			CHANNELS[`CHANNEL{channelNumber}`].LEDS[index].Visible = isVisible
-		end
+		ChannelActive[channelNumber] = isVisible
 	end)
 end
 
@@ -203,7 +209,7 @@ do
 					beatFXbutton.Material = Enum.Material.Neon
 					task.wait(.25)
 				end
-			end) loop()
+			end); loop()
 			deb = true
 		elseif deb then
 			loop = false
@@ -528,54 +534,19 @@ do
 			LEDS["SEND EXT 1"].Material = Enum.Material.Neon
 		end	
 	end)
-	
-	LEDS["SEND SHORT DELAY"].ClickDetector.MouseClick:Connect(function()
-		if sendButton == LEDS["SEND SHORT DELAY"] then
-			local saved = sendButton
-			sendButton = nil
-			saved.Color = Color3.fromRGB(160, 160, 160)
-			saved.Material = Enum.Material.Neon
-		else
-			sendButton = LEDS["SEND SHORT DELAY"]
-			turnOnAllButtons(sendButton.Name)
-		end	
-	end)
-	
-	LEDS["SEND LONG DELAY"].ClickDetector.MouseClick:Connect(function()
-		if sendButton == LEDS["SEND LONG DELAY"] then
-			local saved = sendButton
-			sendButton = nil
-			saved.Color = Color3.fromRGB(160, 160, 160)
-			saved.Material = Enum.Material.Neon
-		else
-			sendButton = LEDS["SEND LONG DELAY"]
-			turnOnAllButtons(sendButton.Name)
-		end	
-	end)
-	
-	LEDS["SEND DUB ECHO"].ClickDetector.MouseClick:Connect(function()
-		if sendButton == LEDS["SEND DUB ECHO"] then
-			local saved = sendButton
-			sendButton = nil
-			saved.Color = Color3.fromRGB(160, 160, 160)
-			saved.Material = Enum.Material.Neon
-		else
-			sendButton = LEDS["SEND DUB ECHO"]
-			turnOnAllButtons(sendButton.Name)
-		end	
-	end)
-	
-	LEDS["SEND REVERB"].ClickDetector.MouseClick:Connect(function()
-		if sendButton == LEDS["SEND REVERB"] then
-			local saved = sendButton
-			sendButton = nil
-			saved.Color = Color3.fromRGB(160, 160, 160)
-			saved.Material = Enum.Material.Neon
-		else
-			sendButton = LEDS["SEND REVERB"]
-			turnOnAllButtons(sendButton.Name)
-		end	
-	end)
+
+	for sendFx,_ in whitelistedButtons do
+		LEDS[sendFx].ClickDetector.MouseClick:Connect(function()
+			if sendButton == LEDS[sendFx] then
+				local saved = sendButton
+				sendButton = nil
+				saved.Color = Color3.fromRGB(170, 170, 170)
+			else
+				sendButton = LEDS[sendFx]
+				turnOnAllButtons(sendButton.Name)
+			end
+		end)
+	end
 end
 
 do
