@@ -19,7 +19,6 @@ function DJDECK:Initialize(deckModel: Model)
 	local MIXER = deckModel:WaitForChild("mixer")
 	local CHANNELS = MIXER:GetAttribute("ChannelCount")
 	local XONE = MIXER:GetAttribute("isXone")
-	local RMX = MIXER:GetAttribute("isRMX")
 	
 	for _,child in deckModel:GetChildren() do
 		local playerNumber = child:GetAttribute("PlayerNumber")
@@ -27,7 +26,6 @@ function DJDECK:Initialize(deckModel: Model)
 			table.insert(DECKS, child)
 		end
 	end
-	
 	
 	copyContents(XONE and CONTENTS[`MIXER_XONE`] or CONTENTS[`MIXER_{CHANNELS}CHANNEL`], MIXER)
 	for deckNum = 1, #DECKS do
