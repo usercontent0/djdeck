@@ -185,7 +185,7 @@ do
 		else
 			LEDS["CUE LED RINGS"]["CHANNEL 1"].Color = Color3.fromRGB(0, 0, 0)
 		end
-	end)a
+	end)
 	LEDS["CUE CHANNEL 2"].ClickDetector.MouseClick:Connect(function()
 		if LEDS["CUE LED RINGS"]["CHANNEL 2"].Color == Color3.fromRGB(0, 0, 0) then
 			LEDS["CUE LED RINGS"]["CHANNEL 2"].Color = Color3.fromRGB(165, 0, 74)

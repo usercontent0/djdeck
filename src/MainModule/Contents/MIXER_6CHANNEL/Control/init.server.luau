@@ -4,6 +4,7 @@ local runService = game:GetService("RunService")
 local Master = script.Parent
 local DECK = Master.Parent
 
+local isRMX = Master:GetAttribute("isRMX")
 local Body = script.Parent.Body
 local LEDS = script.Parent.LEDS
 local INDICATORS = LEDS["VOLUME INDICATORS"]
@@ -12,6 +13,13 @@ local volumeMeter = script.Parent:WaitForChild("VolumeMeter")
 local faderStatus = script.Parent:WaitForChild("FaderStatus")
 local knobControl = script.Parent:WaitForChild("KnobControl")
 local faderControl = script.Parent:WaitForChild("FaderControl")
+
+local RMX, LEDS_RMX, INDICATORS_RMX
+if isRMX then
+	RMX = DECK:FindFirstChild("rmx").Machine
+	LEDS_RMX = RMX.LEDS
+	INDICATORS_RMX = LEDS_RMX["VOLUME INDICATORS"]
+end
 
 local function mapNumber(l, inMin, inMax, outMin, outMax)
 	if (inMax - inMin + outMin == 0) then return 0 end	
@@ -49,6 +57,21 @@ do
 		["MASTER2"] = INDICATORS["MASTER R"]
 	}
 
+	local LEVELTABS_RMX, CHANNELS_RMX
+	local PeakLevel_RMX = 0
+	local PeakTimer_RMX = 0
+
+	if isRMX then
+		LEVELTABS_RMX = {["INPUT"] = {}, ["OUTPUT"] = {}}
+		CHANNELS_RMX = {["INPUT"] = INDICATORS_RMX["INPUT"], ["OUTPUT"] = INDICATORS_RMX["OUTPUT"]}
+
+		for _,lvlTab in LEVELTABS_RMX do
+			for VUIndex = 1, 11 do
+				table.insert(lvlTab, mapNumber(VUIndex, 1, 11, 0, MaxSize))
+			end
+		end
+	end
+
 	local function fillLevelTabs(t)
 		for _,channel in t do
 			for vuIndex = 1, VUSize do
@@ -76,6 +99,8 @@ do
 
 			for channel = 1, 6 do
 				local newLevel = RANDOMS[channel]
+
+				PeakTimers[channel] += updateFPS
 				if (PeakTimers[channel] >= PeakHoldTime) or (newLevel > PeakLevels[channel]) then
 					PeakLevels[channel], PeakTimers[channel] = newLevel, 0
 				end
@@ -99,8 +124,9 @@ do
 				local newLevel = (LEVELS[1] + LEVELS[2] + LEVELS[3] + LEVELS[4] + LEVELS[5] + LEVELS[6]) / masterDiv[channel]
 				local masterIndex = channel + 6
 
+				PeakTimers[masterIndex] += updateFPS
 				if (PeakTimers[masterIndex] >= PeakHoldTime) or (newLevel > PeakLevels[masterIndex]) then
-					PeakLevels[masterIndex], PeakTimers[masterIndex] = newLevel, 0					
+					PeakLevels[masterIndex], PeakTimers[masterIndex] = newLevel, 0		
 				end
 
 				if newLevel < 5 then
@@ -113,6 +139,28 @@ do
 					CHANNELS["MASTER"..channel].LEDS[vuIndex].BackgroundTransparency = 
         			(LEVELTABS["MASTER"..channel][vuIndex] < newLevel
 					or (peakIndex > 1 and vuIndex == peakIndex)) and 0 or 1
+				end
+			end
+
+			if not isRMX then return end
+			for name, channel in CHANNELS_RMX do
+				local newLevel = (LEVELS[1] + LEVELS[2] + LEVELS[3] + LEVELS[4] + LEVELS[5] + LEVELS[6]) / 2
+
+				PeakTimer_RMX += updateFPS
+				if (PeakTimer_RMX >= PeakHoldTime) or (newLevel > PeakLevel_RMX) then
+					PeakLevel_RMX, PeakTimer_RMX = newLevel, 0	
+				end
+
+				if newLevel < 5 then
+					local currentDecay = DecayRate * (PeakLevel_RMX ^ ExpFactor)
+					PeakLevel_RMX = math.max(PeakLevel_RMX - (currentDecay*deltaTime), 0)
+				end
+
+				local peakIndex = math.floor(mapNumber(PeakLevel_RMX, 0, MaxSize, 1, 11))
+				for vuIndex = 1, 11 do
+					channel.LEDS[vuIndex].ImageTransparency =
+						(LEVELTABS_RMX[name][vuIndex] < newLevel
+						or (peakIndex > 1 and vuIndex == peakIndex)) and 0 or 1
 				end
 			end
 		end
@@ -626,6 +674,18 @@ do
 				end
 			end
 			task.wait(.5)
+		end
+	end)
+end
+
+do
+	if not isRMX then return end
+	task.spawn(function()
+		while true do
+			LEDS_RMX["BPM"].Transparency = 1
+			task.wait(.25)
+			LEDS_RMX["BPM"].Transparency = 0
+			task.wait(.25)
 		end
 	end)
 end

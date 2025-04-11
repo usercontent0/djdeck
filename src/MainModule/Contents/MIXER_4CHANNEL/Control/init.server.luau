@@ -74,6 +74,8 @@ do
 
 			for channel = 1, 4 do
 				local newLevel = RANDOMS[channel]
+
+				PeakTimers[channel] += updateFPS
 				if (PeakTimers[channel] >= PeakHoldTime) or (newLevel > PeakLevels[channel]) then
 					PeakLevels[channel], PeakTimers[channel] = newLevel, 0
 				end
@@ -97,6 +99,7 @@ do
 				local newLevel = (LEVELS[1] + LEVELS[2] + LEVELS[3] + LEVELS[4]) / masterDiv[channel]
 				local masterIndex = channel + 4
 
+				PeakTimers[masterIndex] += updateFPS
 				if (PeakTimers[masterIndex] >= PeakHoldTime) or (newLevel > PeakLevels[masterIndex]) then
 					PeakLevels[masterIndex], PeakTimers[masterIndex] = newLevel, 0					
 				end
