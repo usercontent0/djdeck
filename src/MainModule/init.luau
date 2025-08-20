@@ -11,7 +11,19 @@ local function copyContents(oldParent: Instance, newParent: Instance)
 	end
 end
 
+local availableUsbColors = {
+	Color3.fromRGB(177, 125, 182),
+	Color3.fromRGB(218, 62, 52),
+	Color3.fromRGB(206, 138, 84),
+	Color3.fromRGB(232, 211, 106),
+	Color3.fromRGB(114, 193, 89),
+	Color3.fromRGB(80, 181, 224),
+	Color3.fromRGB(51, 98, 174),
+	Color3.fromRGB(101, 83, 163),
+}
+
 function DJDECK:Initialize(deckModel: Model)
+	deckModel:SetAttribute("USBColor", availableUsbColors[math.random(1, #availableUsbColors)])
 	deckModel:SetAttribute("MasterSettings", "")
 	if deckModel.Name ~= "DJDECK" then deckModel.Name = "DJDECK" end
 	
@@ -29,7 +41,8 @@ function DJDECK:Initialize(deckModel: Model)
 	
 	copyContents(XONE and CONTENTS[`MIXER_XONE`] or CONTENTS[`MIXER_{CHANNELS}CHANNEL`], MIXER)
 	for deckNum = 1, #DECKS do
-		copyContents(CONTENTS["DECK"], DECKS[deckNum])
+		local isNewDeck = DECKS[deckNum]:GetAttribute("IsNewGeneration")
+		copyContents(CONTENTS[isNewDeck and "DECK_NEW" or "DECK"], DECKS[deckNum])
 	end
 end
 

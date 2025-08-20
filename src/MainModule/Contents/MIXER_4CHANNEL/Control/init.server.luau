@@ -13,6 +13,8 @@ local faderStatus = script.Parent:WaitForChild("FaderStatus")
 local knobControl = script.Parent:WaitForChild("KnobControl")
 local faderControl = script.Parent:WaitForChild("FaderControl")
 
+local USBColor = DECK:GetAttribute("USBColor")
+
 local function mapNumber(l, inMin, inMax, outMin, outMax)
 	if (inMax - inMin + outMin == 0) then return 0 end	
 	return ((l - inMin) * (outMax - outMin)) / (inMax - inMin) + outMin
@@ -291,9 +293,14 @@ do
 	end
 		
 	for _,CDJ in CDJs do
-		if CDJ:GetAttribute("HasUSB") then
+		if CDJ:GetAttribute("HasUSB") and not CDJ:GetAttribute("IsNewGeneration") then
 			CDJ.LEDS["LINK BUTTON"].Color = Color3.fromRGB(43, 89, 130)
 			CDJ.LEDS["LINK BUTTON"].Material = Enum.Material.Neon
+		end
+
+		if CDJ:GetAttribute("IsNewGeneration") then
+			CDJ.LEDS["TOP LED"].Color = USBColor
+			CDJ.LEDS["SCREEN"].Screen.Background.Changable.SongInfo.SourceColor.BackgroundColor3 = USBColor
 		end
 	end
 	
@@ -301,19 +308,25 @@ do
 		while true do
 			for _,CDJ in CDJs do
 				if CDJ:GetAttribute("HasUSB") then
-					CDJ.LEDS["USB LED"].Color = Color3.fromRGB(160, 160, 160)
-					CDJ.LEDS["USB BUTTON"].Color = Color3.fromRGB(143, 170, 70)
+					CDJ.LEDS["USB LED"].Color = CDJ:GetAttribute("IsNewGeneration") and USBColor or Color3.fromRGB(160, 160, 160)
 					CDJ.LEDS["USB LED"].Material = Enum.Material.Neon
-					CDJ.LEDS["USB BUTTON"].Material = Enum.Material.Neon
+
+					if not CDJ:GetAttribute("IsNewGeneration") then
+						CDJ.LEDS["USB BUTTON"].Color = Color3.fromRGB(143, 170, 70)
+						CDJ.LEDS["USB BUTTON"].Material = Enum.Material.Neon
+					end
 				end
 			end
 			task.wait(.5)
 			for _,CDJ in CDJs do
 				if CDJ:GetAttribute("HasUSB") then
 					CDJ.LEDS["USB LED"].Color = Color3.fromRGB(100, 100, 100)
-					CDJ.LEDS["USB BUTTON"].Color = Color3.fromRGB(100, 100, 100)
 					CDJ.LEDS["USB LED"].Material = Enum.Material.SmoothPlastic
-					CDJ.LEDS["USB BUTTON"].Material = Enum.Material.SmoothPlastic
+
+					if not CDJ:GetAttribute("IsNewGeneration") then
+						CDJ.LEDS["USB BUTTON"].Color = Color3.fromRGB(100, 100, 100)
+						CDJ.LEDS["USB BUTTON"].Material = Enum.Material.SmoothPlastic
+					end
 				end
 			end
 			task.wait(.5)
@@ -323,14 +336,14 @@ do
 	task.spawn(function()
 		while true do
 			for _,CDJ in CDJs do
-				if not CDJ:GetAttribute("HasUSB") then
+				if not CDJ:GetAttribute("HasUSB") and not CDJ:GetAttribute("IsNewGeneration") then
 					CDJ.LEDS["LINK BUTTON"].Color = Color3.fromRGB(57, 115, 170)
 					CDJ.LEDS["LINK BUTTON"].Material = Enum.Material.Neon
 				end
 			end
 			task.wait(.5)
 			for _,CDJ in CDJs do
-				if not CDJ:GetAttribute("HasUSB") then
+				if not CDJ:GetAttribute("HasUSB") and not CDJ:GetAttribute("IsNewGeneration") then
 					CDJ.LEDS["LINK BUTTON"].Color = Color3.fromRGB(100, 100, 100)
 					CDJ.LEDS["LINK BUTTON"].Material = Enum.Material.SmoothPlastic
 				end
